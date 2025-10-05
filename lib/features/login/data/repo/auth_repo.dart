@@ -27,7 +27,7 @@ class AuthRepository {
     bool rememberMe = false,
   }) async {
     try {
-      print('🔐 Attempting sign in for: $email');
+      print('Attempting sign in for: $email');
       
       final response = await _supabase.auth.signInWithPassword(
         email: email,
@@ -35,7 +35,7 @@ class AuthRepository {
       );
 
       if (response.user != null) {
-        print('✅ Sign in successful');
+        print('Sign in successful');
         await _safeUpdateEmailVerificationStatus(response.user!);
       }
 
@@ -53,7 +53,7 @@ class AuthRepository {
     String? phoneNumber,
   }) async {
     try {
-      print('📝 Attempting sign up for: $email');
+      print(' Attempting sign up for: $email');
       
       final response = await _supabase.auth.signUp(
         email: email,
@@ -80,7 +80,7 @@ class AuthRepository {
   // دالة لإرسال OTP لإعادة تعيين كلمة المرور
   Future<void> sendPasswordResetOTP(String email) async {
     try {
-      print('🔑 Sending password reset OTP to: $email');
+      print('Sending password reset OTP to: $email');
       
       await _supabase.auth.resetPasswordForEmail(
         email,
@@ -94,16 +94,15 @@ class AuthRepository {
     }
   }
 
-  // دالة للتحقق من OTP وإعادة تعيين كلمة المرور
+
   Future<void> verifyOTPAndResetPassword({
     required String email,
     required String token,
     required String newPassword,
   }) async {
     try {
-      print('🔑 Verifying OTP and resetting password for: $email');
-      
-      // التحقق من OTP وإعادة تعيين كلمة المرور
+      print('Verifying OTP and resetting password for: $email');
+    
       final response = await _supabase.auth.verifyOTP(
         type: OtpType.recovery,
         email: email,
@@ -111,7 +110,7 @@ class AuthRepository {
       );
 
       if (response.user != null) {
-        // تحديث كلمة المرور
+    
         await _supabase.auth.updateUser(
           UserAttributes(password: newPassword),
         );
@@ -126,7 +125,7 @@ class AuthRepository {
     }
   }
 
-// إضافة دالة updateEmailVerificationInProfile إلى الـ Repository
+
 Future<void> updateEmailVerificationInProfile(User user) async {
   try {
     print('📧 Updating email verification in profile for: ${user.id}');
@@ -145,10 +144,9 @@ Future<void> updateEmailVerificationInProfile(User user) async {
     
   } catch (e) {
     print('⚠️ Update email verification in profile warning: $e');
-    // لا نرمي خطأ لأنها عملية ثانوية
+   
   }
 }
-  // دالة لإرسال OTP للتحقق من الإيميل
   Future<void> sendEmailVerificationOTP(String email) async {
     try {
       print('📧 Sending email verification OTP to: $email');
@@ -165,7 +163,6 @@ Future<void> updateEmailVerificationInProfile(User user) async {
     }
   }
 
-  // دالة للتحقق من OTP للإيميل
   Future<AuthResponse> verifyEmailOTP({
     required String email,
     required String token,
@@ -236,7 +233,7 @@ Future<void> updateEmailVerificationInProfile(User user) async {
     }
   }
 
-  // إبقاء الدالة القديمة للتوافق مع الكود الموجود
+
   @Deprecated('Use sendPasswordResetOTP instead')
   Future<void> resetPassword(String email) async {
     await sendPasswordResetOTP(email);
@@ -279,7 +276,7 @@ Future<void> updateEmailVerificationInProfile(User user) async {
     
     if (e.toString().contains('infinite recursion') || 
         e.toString().contains('42P17')) {
-      print('🔧 Attempting to get profile without RLS policies');
+      print('Attempting to get profile without RLS policies');
       return await _getProfileWithoutRLS(userId);
     }
     
@@ -303,7 +300,7 @@ Future<void> updateEmailVerificationInProfile(User user) async {
 
   Future<void> updateUserProfile(UserProfile profile) async {
     try {
-      print('📝 Updating profile for user: ${profile.id}');
+      print('Updating profile for user: ${profile.id}');
       
       await _supabase
           .from('profiles')
@@ -338,7 +335,7 @@ Future<void> updateEmailVerificationInProfile(User user) async {
         return;
       }
 
-      print('📝 Creating profile for user: ${user.id}');
+      print('Creating profile for user: ${user.id}');
       
       await _supabase.from('profiles').insert({
         'id': user.id,
@@ -360,7 +357,7 @@ Future<void> updateEmailVerificationInProfile(User user) async {
 
   Future<void> _safeUpdateEmailVerificationStatus(User user) async {
     try {
-      print('📧 Updating email verification status for: ${user.id}');
+      print(' Updating email verification status for: ${user.id}');
       
       final isEmailVerified = user.emailConfirmedAt != null;
       
@@ -375,7 +372,7 @@ Future<void> updateEmailVerificationInProfile(User user) async {
       print('✅ Email verification status updated: $isEmailVerified');
       
     } catch (e) {
-      print('⚠️ Update email verification warning: $e');
+      print('Update email verification warning: $e');
     }
   }
 
@@ -419,7 +416,7 @@ Future<void> updateEmailVerificationInProfile(User user) async {
 
   Future<void> refreshSession() async {
     try {
-      print('🔄 Refreshing session');
+      print(' Refreshing session');
       await _supabase.auth.refreshSession();
       print('✅ Session refreshed successfully');
     } catch (e) {
