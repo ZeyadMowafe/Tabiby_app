@@ -15,7 +15,7 @@ class OTPInputScreen extends StatefulWidget {
   final String email;
   final OTPType otpType;
   final String? message;
-  final String? newPassword; // لحالة إعادة تعيين كلمة المرور
+  final String? newPassword; 
 
   const OTPInputScreen({
     Key? key,
