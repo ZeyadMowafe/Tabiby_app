@@ -25,7 +25,7 @@ class AppAuthCubit extends Cubit<AppAuthState> {
 
   Future<void> _handleUserAuthenticated(User user) async {
     try {
-      // تحديث حالة التحقق من الإيميل
+ 
       await _authRepository.updateEmailVerificationInProfile(user);
       final profile = await _authRepository.getUserProfile(user.id);
       final isEmailVerified = user.emailConfirmedAt != null;
@@ -110,7 +110,7 @@ class AppAuthCubit extends Cubit<AppAuthState> {
 
     if (response.user != null) {
       if (response.user?.emailConfirmedAt == null) {
-        // إرسال حالة طلب OTP للتحقق من الإيميل
+
         emit(AppAuthOTPRequired(
           email: email,
           otpType: OTPType.emailVerification,
@@ -131,7 +131,7 @@ class AppAuthCubit extends Cubit<AppAuthState> {
   }
 }
 
-  // دالة جديدة لإرسال OTP لإعادة تعيين كلمة المرور
+
   Future<void> sendPasswordResetOTP(String email) async {
     try {
       emit(const AppAuthLoading(isSendingOTP: true));
@@ -150,7 +150,7 @@ class AppAuthCubit extends Cubit<AppAuthState> {
     }
   }
 
-  // دالة جديدة للتحقق من OTP وإعادة تعيين كلمة المرور
+
   Future<void> verifyOTPAndResetPassword({
   required String email,
   required String otp,
@@ -159,15 +159,13 @@ class AppAuthCubit extends Cubit<AppAuthState> {
   try {
     emit(const AppAuthLoading(isOTPVerification: true));
 
-    // التحقق من OTP وإعادة تعيين كلمة المرور
     await _authRepository.verifyOTPAndResetPassword(
       email: email,
       token: otp,
       newPassword: newPassword,
     );
 
-    // تسجيل الدخول التلقائي بكلمة المرور الجديدة
-    await Future.delayed(const Duration(milliseconds: 500)); // انتظار قصير للتأكد من تطبيق التغييرات
+    await Future.delayed(const Duration(milliseconds: 500)); 
     
     final response = await _authRepository.signIn(
       email: email,
@@ -175,23 +173,21 @@ class AppAuthCubit extends Cubit<AppAuthState> {
     );
 
     if (response.user != null) {
-      // تحديث حالة التحقق من الإيميل في الملف الشخصي
       await _authRepository.updateEmailVerificationInProfile(response.user!);
-      
-      // تحميل الملف الشخصي
+
       final profile = await _authRepository.getUserProfile(response.user!.id);
       
-      // إصدار حالة المستخدم المصادق عليه
+
       emit(AppAuthAuthenticated(user: response.user!, profile: profile));
     } else {
-      // في حالة فشل تسجيل الدخول التلقائي، إرسال حالة نجح إعادة التعيين
+
       emit(const AppAuthPasswordResetSuccess());
     }
 
   } catch (e) {
-    print('❌ Verify OTP and reset password error: $e');
+    print('Verify OTP and reset password error: $e');
     
-    // في حالة الخطأ، محاولة تسجيل الدخول التلقائي كإجراء بديل
+
     try {
       await Future.delayed(const Duration(milliseconds: 1000));
       final response = await _authRepository.signIn(
@@ -212,7 +208,7 @@ class AppAuthCubit extends Cubit<AppAuthState> {
     emit(AppAuthError(_parseError(e.toString())));
     await Future.delayed(const Duration(seconds: 2));
     
-    // العودة لحالة طلب OTP
+
     emit(AppAuthOTPRequired(
       email: email,
       otpType: OTPType.passwordReset,
@@ -220,7 +216,7 @@ class AppAuthCubit extends Cubit<AppAuthState> {
     ));
   }
 }
-  // دالة جديدة للتحقق من OTP للإيميل
+
   Future<void> verifyEmailOTP({
     required String email,
     required String otp,
@@ -243,7 +239,7 @@ class AppAuthCubit extends Cubit<AppAuthState> {
       emit(AppAuthError(_parseError(e.toString())));
       await Future.delayed(const Duration(seconds: 2));
       
-      // العودة لحالة طلب OTP
+  
       emit(AppAuthOTPRequired(
         email: email,
         otpType: OTPType.emailVerification,
@@ -252,7 +248,7 @@ class AppAuthCubit extends Cubit<AppAuthState> {
     }
   }
 
-  // دالة لإعادة إرسال OTP
+
   Future<void> resendOTP(String email, OTPType otpType) async {
     try {
       emit(const AppAuthLoading(isSendingOTP: true));
@@ -269,7 +265,7 @@ class AppAuthCubit extends Cubit<AppAuthState> {
         otpType: otpType,
       ));
 
-      // العودة لحالة طلب OTP
+
       await Future.delayed(const Duration(seconds: 2));
       emit(AppAuthOTPRequired(
         email: email,
@@ -281,7 +277,6 @@ class AppAuthCubit extends Cubit<AppAuthState> {
       emit(AppAuthError(_parseError(e.toString())));
       await Future.delayed(const Duration(seconds: 2));
 
-      // العودة لحالة طلب OTP
       emit(AppAuthOTPRequired(
         email: email,
         otpType: otpType,
@@ -299,13 +294,12 @@ class AppAuthCubit extends Cubit<AppAuthState> {
     }
   }
 
-  // الاحتفاظ بالدالة القديمة للتوافق مع الكود الموجود
   @Deprecated('Use sendPasswordResetOTP instead')
   Future<void> resetPassword(String email) async {
     await sendPasswordResetOTP(email);
   }
 
-  // الاحتفاظ بالدالة القديمة للتوافق مع الكود الموجود
+
   @Deprecated('Use verifyOTPAndResetPassword instead')
   Future<void> updatePassword(String newPassword) async {
     try {
@@ -325,7 +319,6 @@ class AppAuthCubit extends Cubit<AppAuthState> {
     }
   }
 
-  // دالة محدثة لإعادة إرسال رمز التحقق
   Future<void> resendVerificationEmail(String email) async {
     try {
       emit(const AppAuthLoading(isEmailResend: true));
@@ -338,7 +331,6 @@ class AppAuthCubit extends Cubit<AppAuthState> {
         otpType: OTPType.emailVerification,
       ));
 
-      // العودة لحالة طلب OTP
       await Future.delayed(const Duration(seconds: 2));
       emit(AppAuthOTPRequired(
         email: email,
