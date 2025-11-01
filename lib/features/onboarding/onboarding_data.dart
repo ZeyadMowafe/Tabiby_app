@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 class OnboardingData {
   final String title;
   final String subtitle;
-  final String description;
+  final String? description;
   final String stats;
   final IconData primaryIcon;
   final List<IconData> backgroundIcons;
@@ -12,7 +12,7 @@ class OnboardingData {
   OnboardingData({
     required this.title,
     required this.subtitle,
-    required this.description,
+     this.description,
     required this.stats,
     required this.primaryIcon,
     required this.backgroundIcons,

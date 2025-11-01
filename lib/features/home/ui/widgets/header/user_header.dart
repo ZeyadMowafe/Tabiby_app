@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:tabiby/core/theming/app_text_styles.dart';
 import 'package:tabiby/core/theming/colors.dart';
 import 'package:tabiby/features/home/data/patient_data.dart';
-import 'package:tabiby/features/home/ui/widgets/common/status_badge.dart';
+
+import 'package:gap/gap.dart';
 
 class UserHeader extends StatelessWidget {
   const UserHeader({super.key});
@@ -11,15 +12,15 @@ class UserHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(26),
       decoration: _buildHeaderDecoration(),
       child: Row(
         children: [
-          _buildUserInfo(),
-          _buildNotificationButton(),
-          const SizedBox(width: 16),
-          _buildUserAvatar(),
+          buildUserInfo(),
+          buildNotificationButton(),
+          Gap(10.w),
+          buildUserAvatar(),
         ],
       ),
     );
@@ -32,37 +33,54 @@ class UserHeader extends StatelessWidget {
         end: Alignment.bottomRight,
         colors: [AppColors.headerPrimary, AppColors.headerSecondary],
       ),
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(24.r),
       boxShadow: [
         BoxShadow(
           color: AppColors.headerPrimary.withOpacity(0.3),
-          blurRadius: 32,
+          blurRadius: 32.r,
           offset: const Offset(0, 16),
         ),
       ],
     );
   }
   
-  Widget _buildUserInfo() {
-    return Expanded(
+ 
+
+
+
+
+  
+
+  
+  
+}
+
+class buildUserInfo extends StatelessWidget {
+  const buildUserInfo({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return  Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Welcome back', style: AppTextStyles.headerSubtitle),
-          const SizedBox(height: 8),
+         const Text('Welcome back', style: AppTextStyles.headerSubtitle),
+          Gap(3.h),
           Text(PatientData.userName, style: AppTextStyles.headerTitle),
-          const SizedBox(height: 12),
-          const StatusBadge(
-            text: 'Healthy',
-            color: AppColors.healthyPrimary,
-            backgroundColor: AppColors.healthyPrimary,
-          ),
+          Gap(8.h),
+          
         ],
       ),
-    );
+    );;
   }
-  
-  Widget _buildNotificationButton() {
+}
+
+
+class buildNotificationButton extends StatelessWidget {
+  const buildNotificationButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Stack(
       children: [
         Container(
@@ -100,8 +118,13 @@ class UserHeader extends StatelessWidget {
       ],
     );
   }
-  
-  Widget _buildUserAvatar() {
+}
+
+class buildUserAvatar extends StatelessWidget {
+  const buildUserAvatar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: 56,
       height: 56,
@@ -133,3 +156,4 @@ class UserHeader extends StatelessWidget {
     );
   }
 }
+

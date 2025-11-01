@@ -32,7 +32,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  int _currentStep = 0; // 0: Email, 1: New Password
+  int _currentStep = 0; 
 
   @override
   void initState() {

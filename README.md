@@ -1,6 +1,6 @@
-# tabiby
+# tabiby_app
 
-booking doctor
+booking App
 
 ## Getting Started
 

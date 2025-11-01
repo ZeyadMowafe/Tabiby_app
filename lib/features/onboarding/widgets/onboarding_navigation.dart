@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gap/gap.dart';
 
 import 'onboarding_progress_indicator.dart';
 
@@ -22,15 +23,15 @@ class OnboardingNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:  EdgeInsets.all(24.h),
+      padding: EdgeInsets.all(24.h),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:  BorderRadius.vertical(top: Radius.circular(24.r)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(50.r)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 20.r,
+            offset: const Offset(0, -7),
           ),
         ],
       ),
@@ -42,15 +43,40 @@ class OnboardingNavigation extends StatelessWidget {
             totalPages: totalPages,
             activeColor: primaryColor,
           ),
-          const SizedBox(height: 24),
-          _buildContinueButton(),
-          if (currentIndex > 0) _buildPreviousButton(),
+          Gap(24.h),
+
+          buildContinueButton(
+            primaryColor: primaryColor,
+            currentIndex: currentIndex,
+            totalPages: totalPages,
+            onNextPressed: onNextPressed,
+          ),
+          if (currentIndex > 0)
+            buildPreviousButton(
+              onPreviousPressed: onPreviousPressed,
+              primaryColor: primaryColor,
+            ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildContinueButton() {
+class buildContinueButton extends StatelessWidget {
+  const buildContinueButton({
+    super.key,
+    required this.primaryColor,
+    required this.currentIndex,
+    required this.totalPages,
+    required this.onNextPressed,
+  });
+  final Color primaryColor;
+  final int currentIndex;
+  final int totalPages;
+  final VoidCallback onNextPressed;
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       height: 56.h,
@@ -71,9 +97,7 @@ class OnboardingNavigation extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              currentIndex == totalPages - 1
-                  ? 'Get Started'
-                  : 'Continue',
+              currentIndex == totalPages - 1 ? 'Get Started' : 'Continue',
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -92,8 +116,18 @@ class OnboardingNavigation extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildPreviousButton() {
+class buildPreviousButton extends StatelessWidget {
+  const buildPreviousButton({
+    super.key,
+    required this.onPreviousPressed,
+    required this.primaryColor,
+  });
+  final VoidCallback onPreviousPressed;
+  final Color primaryColor;
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
         const SizedBox(height: 12),
@@ -102,19 +136,15 @@ class OnboardingNavigation extends StatelessWidget {
           height: 48.h,
           child: TextButton(
             onPressed: onPreviousPressed,
-            style: TextButton.styleFrom(
-              foregroundColor: primaryColor,
-            ),
+            style: TextButton.styleFrom(foregroundColor: primaryColor),
             child: const Text(
               'Previous',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
           ),
         ),
       ],
     );
+    ;
   }
 }

@@ -15,24 +15,20 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late PageController _pageController;
   int _currentIndex = 0;
-
-  late AnimationController _fadeController;
-  late AnimationController _slideController;
-  late AnimationController _scaleController;
-
+  double _currentPageValue = 0.0;
+  late AnimationController _contentAnimationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  late Animation<double> _scaleAnimation;
 
   // Premium onboarding content
   final List<OnboardingData> _pages = [
     OnboardingData(
       title: "Expert Medical Care",
       subtitle: "At Your Fingertips",
-      description: "Connect with board-certified specialists and experienced healthcare professionals across all medical disciplines with verified credentials and proven track records.",
+      // description: "Connect with board-certified specialists and experienced healthcare professionals across all medical",
       primaryIcon: Icons.medical_services_rounded,
       backgroundIcons: [Icons.health_and_safety_outlined, Icons.verified_user_outlined, Icons.local_hospital_outlined],
       color: ColorsManager.primaryBlue,
@@ -41,7 +37,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     OnboardingData(
       title: "Smart Scheduling",
       subtitle: "Book Instantly",
-      description: "Advanced AI-powered booking system that finds the perfect appointment slot based on your preferences,",
+      // description: "Advanced AI-powered booking system that finds the perfect appointment slot based on your preferences.",
       primaryIcon: Icons.event_available_rounded,
       backgroundIcons: [Icons.schedule_rounded, Icons.notifications_active_outlined, Icons.smartphone_rounded],
       color: ColorsManager.lightBlue,
@@ -50,7 +46,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     OnboardingData(
       title: "Seamless Experience",
       subtitle: "Real-time Updates",
-      description: "Get instant confirmations, smart reminders, and real-time updates about your appointments. ",
+      // description: "Get instant confirmations, smart reminders, and real-time updates about your appointments.",
       primaryIcon: Icons.timeline_rounded,
       backgroundIcons: [Icons.check_circle_outline_rounded, Icons.sync_rounded, Icons.integration_instructions_outlined],
       color: ColorsManager.darkBlue,
@@ -59,7 +55,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     OnboardingData(
       title: "Premium Healthcare",
       subtitle: "Redefined",
-      description: "Experience the future of healthcare with telemedicine options, digital prescriptions, health insights, ",
+      // description: "Experience the future of healthcare with telemedicine options, digital prescriptions, and health insights.",
       primaryIcon: Icons.psychology_rounded,
       backgroundIcons: [Icons.favorite_outline_rounded, Icons.insights_rounded, Icons.security_rounded],
       color: ColorsManager.accentBlue,
@@ -71,6 +67,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   void initState() {
     super.initState();
     _pageController = PageController();
+    _pageController.addListener(() {
+      setState(() {
+        _currentPageValue = _pageController.page ?? 0.0;
+      });
+    });
     _initAnimations();
     _setSystemUIOverlayStyle();
   }
@@ -87,55 +88,40 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _initAnimations() {
-    _fadeController = AnimationController(
+    _contentAnimationController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
 
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 700),
-      vsync: this,
-    );
-
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+      CurvedAnimation(
+        parent: _contentAnimationController,
+        curve: Curves.easeOut,
+      ),
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+      begin: const Offset(0.15, 0),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
-
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
+    ).animate(
+      CurvedAnimation(
+        parent: _contentAnimationController,
+        curve: Curves.easeOutCubic,
+      ),
     );
 
-    _startAnimations();
+    _startAnimation();
   }
 
-  void _startAnimations() {
-    _fadeController.forward();
-    _slideController.forward();
-    _scaleController.forward();
-  }
-
-  void _resetAnimations() {
-    _fadeController.reset();
-    _slideController.reset();
-    _scaleController.reset();
-    _startAnimations();
+  void _startAnimation() {
+    _contentAnimationController.forward(from: 0.0);
   }
 
   void _nextPage() {
     if (_currentIndex < _pages.length - 1) {
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOutCubic,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
       );
     } else {
       _finishOnboarding();
@@ -144,8 +130,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   void _previousPage() {
     _pageController.previousPage(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOutCubic,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
     );
   }
 
@@ -153,7 +139,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _pageController.animateToPage(
       _pages.length - 1,
       duration: const Duration(milliseconds: 600),
-      curve: Curves.easeInOutCubic,
+      curve: Curves.easeInOut,
     );
   }
 
@@ -162,15 +148,26 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOut;
+
+          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
+
+          var fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeIn),
+          );
+
           return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1.0, 0.0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic)),
-            child: child,
+            position: offsetAnimation,
+            child: FadeTransition(
+              opacity: fadeAnimation,
+              child: child,
+            ),
           );
         },
-        transitionDuration: const Duration(milliseconds: 500),
+        transitionDuration: const Duration(milliseconds: 400),
       ),
     );
   }
@@ -178,9 +175,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   void dispose() {
     _pageController.dispose();
-    _fadeController.dispose();
-    _slideController.dispose();
-    _scaleController.dispose();
+    _contentAnimationController.dispose();
     super.dispose();
   }
 
@@ -210,35 +205,50 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  Widget _buildPageView() {
-    return Expanded(
-      child: PageView.builder(
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-          _resetAnimations();
-        },
-        itemCount: _pages.length,
-        itemBuilder: (context, index) {
-          return AnimatedBuilder(
-            animation: Listenable.merge([_fadeAnimation, _slideAnimation, _scaleAnimation]),
-            builder: (context, child) {
-              return FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: Transform.scale(
-                    scale: _scaleAnimation.value,
+Widget _buildPageView() {
+  return Expanded(
+    child: PageView.builder(
+      controller: _pageController,
+      onPageChanged: (index) {
+        setState(() {
+          _currentIndex = index;
+        });
+        _startAnimation();
+      },
+      itemCount: _pages.length,
+      physics: const BouncingScrollPhysics(),
+      itemBuilder: (context, index) {
+        // Parallax effect calculation
+        double value = 1.0;
+        if (_pageController.position.haveDimensions) {
+          value = (_currentPageValue - index).abs().clamp(0.0, 1.0);
+        }
+
+        // Only apply parallax to non-current pages
+        final isCurrentPage = index == _currentIndex;
+        final scale = isCurrentPage ? 1.0 : 1.0 - (value * 0.05);
+        final opacity = isCurrentPage ? 1.0 : 1.0 - (value * 0.5);
+
+        return AnimatedBuilder(
+          animation: _contentAnimationController,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: scale,
+              child: Opacity(
+                opacity: opacity,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
                     child: OnboardingPage(data: _pages[index]),
                   ),
                 ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
+              ),
+            );
+          },
+        );
+      },
+    ),
+  );
 }
+} 

@@ -17,8 +17,8 @@ class AppAuthLoading extends AppAuthState {
   final bool isPasswordReset;
   final bool isEmailResend;
   final bool isPasswordUpdate;
-  final bool isOTPVerification;
-  final bool isSendingOTP; 
+  final bool isOTPVerification; // جديد
+  final bool isSendingOTP; // جديد
 
   const AppAuthLoading({
     this.isSignIn = false,
@@ -61,7 +61,7 @@ class AppAuthEmailNotVerified extends AppAuthState {
   });
 }
 
-
+// حالة جديدة لإرسال OTP
 class AppAuthOTPSent extends AppAuthState {
   final String email;
   final String message;
@@ -74,12 +74,13 @@ class AppAuthOTPSent extends AppAuthState {
   });
 }
 
+// نوع OTP
 enum OTPType {
   emailVerification,
   passwordReset,
 }
 
-
+// حالة جديدة لطلب إدخال OTP
 class AppAuthOTPRequired extends AppAuthState {
   final String email;
   final OTPType otpType;
@@ -92,7 +93,7 @@ class AppAuthOTPRequired extends AppAuthState {
   });
 }
 
-
+// الحالات الموجودة مسبقاً
 class AppAuthEmailSent extends AppAuthState {
   final String email;
   final String message;

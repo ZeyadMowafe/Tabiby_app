@@ -1,11 +1,11 @@
 {
-    "name": "tabiby",
-    "short_name": "tabiby",
+    "name": "tabiby_app",
+    "short_name": "tabiby_app",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "booking doctor",
+    "description": "booking App",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
