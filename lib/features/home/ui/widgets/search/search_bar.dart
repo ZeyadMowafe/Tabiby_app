@@ -42,7 +42,7 @@ class SearchBarWidget extends StatelessWidget {
                 _buildSearchIcon(),
                 Gap(16.w),
                 Expanded(child: _buildTextField()),
-                
+                Gap(12.w),
                 
               ],
             ),

@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../logic/auth_state.dart';
 import '../model/user_profile.dart';
@@ -7,19 +5,16 @@ import '../model/user_profile.dart';
 class AuthRepository {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  // ==================== Getters ====================
+
   User? get currentUser => _supabase.auth.currentUser;
   Session? get currentSession => _supabase.auth.currentSession;
 
   Stream<AppAuthState> get authStateStream {
-    return _supabase.auth.onAuthStateChange.map((data) {
-      final user = data.session?.user;
-      if (user != null) {
-        return AppAuthAuthenticated(user: user);
-      } else {
-        return const AppAuthUnauthenticated();
-      }
-    });
+    return _supabase.auth.onAuthStateChange.map(_mapAuthStateChange);
   }
+
+  // ==================== Authentication ====================
 
   Future<AuthResponse> signIn({
     required String email,
@@ -27,21 +22,21 @@ class AuthRepository {
     bool rememberMe = false,
   }) async {
     try {
-      print('🔐 Attempting sign in for: $email');
-      
+      _logInfo('Attempting sign in for: $email');
+
       final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
       if (response.user != null) {
-        print('✅ Sign in successful');
-        await _safeUpdateEmailVerificationStatus(response.user!);
+        _logSuccess('Sign in successful');
+        await _updateEmailVerificationStatus(response.user!);
       }
 
       return response;
     } catch (e) {
-      print('❌ Sign in error: $e');
+      _logError('Sign in error', e);
       rethrow;
     }
   }
@@ -53,342 +48,205 @@ class AuthRepository {
     String? phoneNumber,
   }) async {
     try {
-      print('📝 Attempting sign up for: $email');
-      
+      _logInfo('Attempting sign up for: $email');
+
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
-        data: {
-          'full_name': fullName ?? '',
-          'phone_number': phoneNumber ?? '',
-        },
+        data: _buildUserMetadata(fullName, phoneNumber),
         emailRedirectTo: 'tabiby://login-callback',
       );
 
       if (response.user != null) {
-        print('✅ Sign up successful, user created: ${response.user!.id}');
+        _logSuccess('Sign up successful, user: ${response.user!.id}');
         await _ensureUserProfileExists(response.user!);
       }
 
       return response;
     } catch (e) {
-      print('❌ Sign up error: $e');
+      _logError('Sign up error', e);
       rethrow;
     }
   }
 
-  // دالة لإرسال OTP لإعادة تعيين كلمة المرور
+  Future<void> signOut() async {
+    try {
+      _logInfo('Signing out user');
+      await _supabase.auth.signOut();
+      _logSuccess('User signed out successfully');
+    } catch (e) {
+      _logError('Sign out error', e);
+      rethrow;
+    }
+  }
+
+  // ==================== Social Authentication ====================
+
+  Future<bool> signInWithGoogle() async {
+    return await _handleSocialSignIn(
+      OAuthProvider.google,
+      'Google',
+    );
+  }
+
+  Future<bool> signInWithApple() async {
+    return await _handleSocialSignIn(
+      OAuthProvider.apple,
+      'Apple',
+    );
+  }
+
+  Future<bool> _handleSocialSignIn(
+    OAuthProvider provider,
+    String providerName,
+  ) async {
+    try {
+      _logInfo('Attempting $providerName sign in');
+
+      final response = await _supabase.auth.signInWithOAuth(
+        provider,
+        redirectTo: 'tabiby://login-callback',
+      );
+
+      _logSuccess('$providerName sign in response: $response');
+      return response;
+    } catch (e) {
+      _logError('$providerName sign in error', e);
+      return false;
+    }
+  }
+
+  // ==================== Password Reset ====================
+
   Future<void> sendPasswordResetOTP(String email) async {
     try {
-      print('🔑 Sending password reset OTP to: $email');
-      
+      _logInfo('Sending password reset OTP to: $email');
+
       await _supabase.auth.resetPasswordForEmail(
         email,
-        redirectTo: null, // لا نحتاج redirect URL للـ OTP
+        redirectTo: null,
       );
-      
-      print('✅ Password reset OTP sent');
+
+      _logSuccess('Password reset OTP sent');
     } catch (e) {
-      print('❌ Send password reset OTP error: $e');
+      _logError('Send password reset OTP error', e);
       rethrow;
     }
   }
 
-  // دالة للتحقق من OTP وإعادة تعيين كلمة المرور
   Future<void> verifyOTPAndResetPassword({
     required String email,
     required String token,
     required String newPassword,
   }) async {
     try {
-      print('🔑 Verifying OTP and resetting password for: $email');
-      
-      // التحقق من OTP وإعادة تعيين كلمة المرور
+      _logInfo('Verifying OTP and resetting password for: $email');
+
       final response = await _supabase.auth.verifyOTP(
         type: OtpType.recovery,
         email: email,
         token: token,
       );
 
-      if (response.user != null) {
-        // تحديث كلمة المرور
-        await _supabase.auth.updateUser(
-          UserAttributes(password: newPassword),
-        );
-        
-        print('✅ Password reset successful');
-      } else {
+      if (response.user == null) {
         throw Exception('Invalid OTP');
       }
+
+      await _supabase.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+
+      _logSuccess('Password reset successful');
     } catch (e) {
-      print('❌ Verify OTP and reset password error: $e');
+      _logError('Verify OTP and reset password error', e);
       rethrow;
     }
   }
 
-// إضافة دالة updateEmailVerificationInProfile إلى الـ Repository
-Future<void> updateEmailVerificationInProfile(User user) async {
-  try {
-    print('📧 Updating email verification in profile for: ${user.id}');
-    
-    final isEmailVerified = user.emailConfirmedAt != null;
-    
-    await _supabase
-        .from('profiles')
-        .update({
-          'is_verified': isEmailVerified,
-          'updated_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', user.id);
-
-    print('✅ Email verification updated in profile: $isEmailVerified');
-    
-  } catch (e) {
-    print('⚠️ Update email verification in profile warning: $e');
-    // لا نرمي خطأ لأنها عملية ثانوية
-  }
-}
-  // دالة لإرسال OTP للتحقق من الإيميل
-  Future<void> sendEmailVerificationOTP(String email) async {
-    try {
-      print('📧 Sending email verification OTP to: $email');
-      
-      await _supabase.auth.resend(
-        type: OtpType.signup,
-        email: email,
-      );
-      
-      print('✅ Email verification OTP sent');
-    } catch (e) {
-      print('❌ Send email verification OTP error: $e');
-      rethrow;
-    }
-  }
-
-  // دالة للتحقق من OTP للإيميل
-  Future<AuthResponse> verifyEmailOTP({
-    required String email,
-    required String token,
-  }) async {
-    try {
-      print('📧 Verifying email OTP for: $email');
-      
-      final response = await _supabase.auth.verifyOTP(
-        type: OtpType.signup,
-        email: email,
-        token: token,
-      );
-      
-      if (response.user != null) {
-        await _safeUpdateEmailVerificationStatus(response.user!);
-        print('✅ Email verification successful');
-      }
-      
-      return response;
-    } catch (e) {
-      print('❌ Verify email OTP error: $e');
-      rethrow;
-    }
-  }
-
-  Future<bool> signInWithGoogle() async {
-    try {
-      print('🔍 Attempting Google sign in');
-      
-      final response = await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'tabiby://login-callback',
-      );
-      
-      print('✅ Google sign in response: $response');
-      return response;
-    } catch (e) {
-      print('❌ Google Sign In Error: $e');
-      return false;
-    }
-  }
-
-  Future<bool> signInWithApple() async {
-    try {
-      print('🍎 Attempting Apple sign in');
-      
-      final response = await _supabase.auth.signInWithOAuth(
-        OAuthProvider.apple,
-        redirectTo: 'tabiby://login-callback',
-      );
-      
-      print('✅ Apple sign in response: $response');
-      return response;
-    } catch (e) {
-      print('❌ Apple Sign In Error: $e');
-      return false;
-    }
-  }
-
-  Future<void> signOut() async {
-    try {
-      print('🚪 Signing out user');
-      await _supabase.auth.signOut();
-      print('✅ User signed out successfully');
-    } catch (e) {
-      print('❌ Sign out error: $e');
-      rethrow;
-    }
-  }
-
-  // إبقاء الدالة القديمة للتوافق مع الكود الموجود
   @Deprecated('Use sendPasswordResetOTP instead')
   Future<void> resetPassword(String email) async {
     await sendPasswordResetOTP(email);
   }
 
-  Future<UserProfile?> getUserProfile(String userId) async {
-  try {
-    print('👤 Getting profile for user: $userId');
-    
-    final response = await _supabase
-        .from('profiles')
-        .select('id, email, full_name, phone_number, avatar_url, role, is_verified, is_active, city, country')
-        .eq('id', userId)
-        .maybeSingle();
-
-    if (response == null) {
-      print('ℹ️ No profile found for user: $userId');
-      
-      final currentUserId = currentUser?.id;
-      if (currentUserId == userId) {
-        await _ensureUserProfileExists(currentUser!);
-        
-        final retryResponse = await _supabase
-            .from('profiles')
-            .select('id, email, full_name, phone_number, avatar_url, role, is_verified, is_active, city, country')
-            .eq('id', userId)
-            .maybeSingle();
-        
-        return retryResponse != null ? UserProfile.fromJson(retryResponse) : null;
-      }
-      
-      return null;
-    }
-
-    print('✅ Profile found for user: $userId with role: ${response['role']}');
-    return UserProfile.fromJson(response);
-    
-  } catch (e) {
-    print('❌ Get User Profile Error: $e');
-    
-    if (e.toString().contains('infinite recursion') || 
-        e.toString().contains('42P17')) {
-      print('🔧 Attempting to get profile without RLS policies');
-      return await _getProfileWithoutRLS(userId);
-    }
-    
-    return null;
-  }
-}
-
-
-  Future<UserProfile?> _getProfileWithoutRLS(String userId) async {
+  Future<void> updatePassword(String newPassword) async {
     try {
-      final response = await _supabase.rpc('get_user_profile', 
-        params: {'user_id': userId}
+      await _supabase.auth.updateUser(
+        UserAttributes(password: newPassword),
       );
-      
-      return response != null ? UserProfile.fromJson(response) : null;
+      _logSuccess('Password updated successfully');
     } catch (e) {
-      print('❌ Get profile without RLS error: $e');
-      return null;
-    }
-  }
-
-  Future<void> updateUserProfile(UserProfile profile) async {
-    try {
-      print('📝 Updating profile for user: ${profile.id}');
-      
-      await _supabase
-          .from('profiles')
-          .update({
-            ...profile.toJson(),
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', profile.id);
-      
-      print('✅ Profile updated successfully');
-    } catch (e) {
-      print('❌ Update Profile Error: $e');
-      
-      if (e.toString().contains('infinite recursion')) {
-        throw Exception('Profile update failed due to database policy conflict. Please contact support.');
-      }
-      
+      _logError('Update password error', e);
       rethrow;
     }
   }
 
-  Future<void> _ensureUserProfileExists(User user) async {
+  // ==================== Email Verification ====================
+
+  Future<void> sendEmailVerificationOTP(String email) async {
     try {
-      final existingProfile = await _supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', user.id)
-          .maybeSingle();
-      
-      if (existingProfile != null) {
-        print('ℹ️ Profile already exists for user: ${user.id}');
-        return;
+      _logInfo('Sending email verification OTP to: $email');
+
+      await _supabase.auth.resend(
+        type: OtpType.signup,
+        email: email,
+      );
+
+      _logSuccess('Email verification OTP sent');
+    } catch (e) {
+      _logError('Send email verification OTP error', e);
+      rethrow;
+    }
+  }
+
+  Future<AuthResponse> verifyEmailOTP({
+    required String email,
+    required String token,
+  }) async {
+    try {
+      _logInfo('Verifying email OTP for: $email');
+
+      final response = await _supabase.auth.verifyOTP(
+        type: OtpType.signup,
+        email: email,
+        token: token,
+      );
+
+      if (response.user != null) {
+        await _updateEmailVerificationStatus(response.user!);
+        _logSuccess('Email verification successful');
       }
 
-      print('📝 Creating profile for user: ${user.id}');
-      
-      await _supabase.from('profiles').insert({
-        'id': user.id,
-        'email': user.email ?? '',
-        'full_name': user.userMetadata?['full_name'] ?? '',
-        'phone_number': user.userMetadata?['phone_number'] ?? '',
-        'role': 'patient',
-        'is_verified': user.emailConfirmedAt != null,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-      
-      print('✅ Profile created successfully');
-      
+      return response;
     } catch (e) {
-      print('❌ Ensure profile exists error: $e');
+      _logError('Verify email OTP error', e);
+      rethrow;
     }
   }
 
-  Future<void> _safeUpdateEmailVerificationStatus(User user) async {
+  Future<void> updateEmailVerificationInProfile(User user) async {
     try {
-      print('📧 Updating email verification status for: ${user.id}');
-      
-      final isEmailVerified = user.emailConfirmedAt != null;
-      
-      await _supabase
-          .from('profiles')
-          .update({
-            'is_verified': isEmailVerified,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', user.id);
+      _logInfo('Updating email verification in profile for: ${user.id}');
 
-      print('✅ Email verification status updated: $isEmailVerified');
-      
+      await _supabase.from('profiles').update({
+        'is_verified': user.emailConfirmedAt != null,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+
+      _logSuccess('Email verification updated in profile');
     } catch (e) {
-      print('⚠️ Update email verification warning: $e');
+      _logWarning('Update email verification in profile warning', e);
     }
   }
 
-  // دالة محدثة لإعادة إرسال رمز التحقق
+  @Deprecated('Use sendEmailVerificationOTP instead')
   Future<void> resendConfirmationEmail(String email) async {
     await sendEmailVerificationOTP(email);
   }
 
   Future<bool> isEmailVerified(String userId) async {
     try {
-      final user = currentUser;
-      if (user != null && user.id == userId) {
-        return user.emailConfirmedAt != null;
+      if (currentUser != null && currentUser!.id == userId) {
+        return currentUser!.emailConfirmedAt != null;
       }
 
       final response = await _supabase
@@ -398,32 +256,56 @@ Future<void> updateEmailVerificationInProfile(User user) async {
           .maybeSingle();
 
       return response?['is_verified'] ?? false;
-      
     } catch (e) {
-      print('❌ Check email verification error: $e');
-      final user = currentUser;
-      return user?.emailConfirmedAt != null ?? false;
+      _logError('Check email verification error', e);
+      return currentUser?.emailConfirmedAt != null ?? false;
     }
   }
 
-  bool isSessionValid() {
-    final session = currentSession;
-    if (session == null) return false;
-    
-    final expiresAt = session.expiresAt;
-    if (expiresAt == null) return false;
-    
-    return DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000)
-        .isAfter(DateTime.now());
+  // ==================== Profile Management ====================
+
+  Future<UserProfile?> getUserProfile(String userId) async {
+    try {
+      _logInfo('Getting profile for user: $userId');
+
+      final response = await _supabase
+          .from('profiles')
+          .select(_profileSelectQuery)
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (response == null) {
+        return await _handleMissingProfile(userId);
+      }
+
+      _logSuccess('Profile found for user: $userId');
+      return UserProfile.fromJson(response);
+    } catch (e) {
+      _logError('Get user profile error', e);
+      return await _handleProfileError(e, userId);
+    }
   }
 
-  Future<void> refreshSession() async {
+  Future<void> updateUserProfile(UserProfile profile) async {
     try {
-      print('🔄 Refreshing session');
-      await _supabase.auth.refreshSession();
-      print('✅ Session refreshed successfully');
+      _logInfo('Updating profile for user: ${profile.id}');
+
+      await _supabase.from('profiles').update({
+        ...profile.toJson(),
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', profile.id);
+
+      _logSuccess('Profile updated successfully');
     } catch (e) {
-      print('❌ Session refresh error: $e');
+      _logError('Update profile error', e);
+
+      if (e.toString().contains('infinite recursion')) {
+        throw Exception(
+          'Profile update failed due to database policy conflict. '
+          'Please contact support.',
+        );
+      }
+
       rethrow;
     }
   }
@@ -441,7 +323,7 @@ Future<void> updateEmailVerificationInProfile(User user) async {
         'session': currentSession,
       };
     } catch (e) {
-      print('❌ Get Current User Error: $e');
+      _logError('Get current user error', e);
       return {
         'user': currentUser,
         'profile': null,
@@ -450,36 +332,55 @@ Future<void> updateEmailVerificationInProfile(User user) async {
     }
   }
 
-  Future<void> updatePassword(String newPassword) async {
+  // ==================== Session Management ====================
+
+  bool isSessionValid() {
+    final session = currentSession;
+    if (session == null) return false;
+
+    final expiresAt = session.expiresAt;
+    if (expiresAt == null) return false;
+
+    final expirationDate = DateTime.fromMillisecondsSinceEpoch(
+      expiresAt * 1000,
+    );
+
+    return expirationDate.isAfter(DateTime.now());
+  }
+
+  Future<void> refreshSession() async {
     try {
-      await _supabase.auth.updateUser(
-        UserAttributes(password: newPassword),
-      );
-      print('✅ Password updated successfully');
+      _logInfo('Refreshing session');
+      await _supabase.auth.refreshSession();
+      _logSuccess('Session refreshed successfully');
     } catch (e) {
-      print('❌ Update Password Error: $e');
+      _logError('Session refresh error', e);
       rethrow;
     }
   }
+
+  // ==================== Email Update ====================
 
   Future<void> updateEmail(String newEmail) async {
     try {
       await _supabase.auth.updateUser(
         UserAttributes(email: newEmail),
       );
-      print('✅ Email updated successfully');
+      _logSuccess('Email updated successfully');
     } catch (e) {
-      print('❌ Update Email Error: $e');
+      _logError('Update email error', e);
       rethrow;
     }
   }
+
+  // ==================== Connection & Data ====================
 
   Future<bool> checkConnection() async {
     try {
       await _supabase.from('profiles').select('count').limit(1);
       return true;
     } catch (e) {
-      print('❌ Connection check failed: $e');
+      _logError('Connection check failed', e);
       return false;
     }
   }
@@ -487,9 +388,150 @@ Future<void> updateEmailVerificationInProfile(User user) async {
   Future<void> clearLocalData() async {
     try {
       await _supabase.auth.signOut();
-      print('✅ Local data cleared');
+      _logSuccess('Local data cleared');
     } catch (e) {
-      print('❌ Clear local data error: $e');
+      _logError('Clear local data error', e);
     }
+  }
+
+  // ==================== Private Helper Methods ====================
+
+  AppAuthState _mapAuthStateChange(AuthState data) {
+    final user = data.session?.user;
+    return user != null
+        ? AppAuthAuthenticated(user: user)
+        : const AppAuthUnauthenticated();
+  }
+
+  Map<String, dynamic> _buildUserMetadata(
+    String? fullName,
+    String? phoneNumber,
+  ) {
+    return {
+      'full_name': fullName ?? '',
+      'phone_number': phoneNumber ?? '',
+    };
+  }
+
+  Future<void> _ensureUserProfileExists(User user) async {
+    try {
+      final existingProfile = await _supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (existingProfile != null) {
+        _logInfo('Profile already exists for user: ${user.id}');
+        return;
+      }
+
+      _logInfo('Creating profile for user: ${user.id}');
+
+      await _supabase.from('profiles').insert({
+        'id': user.id,
+        'email': user.email ?? '',
+        'full_name': user.userMetadata?['full_name'] ?? '',
+        'phone_number': user.userMetadata?['phone_number'] ?? '',
+        'role': 'patient',
+        'is_verified': user.emailConfirmedAt != null,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      _logSuccess('Profile created successfully');
+    } catch (e) {
+      _logError('Ensure profile exists error', e);
+    }
+  }
+
+  Future<void> _updateEmailVerificationStatus(User user) async {
+    try {
+      _logInfo('Updating email verification status for: ${user.id}');
+
+      await _supabase.from('profiles').update({
+        'is_verified': user.emailConfirmedAt != null,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+
+      _logSuccess('Email verification status updated');
+    } catch (e) {
+      _logWarning('Update email verification warning', e);
+    }
+  }
+
+  Future<UserProfile?> _handleMissingProfile(String userId) async {
+    _logInfo('No profile found for user: $userId');
+
+    if (currentUser?.id == userId) {
+      await _ensureUserProfileExists(currentUser!);
+
+      final retryResponse = await _supabase
+          .from('profiles')
+          .select(_profileSelectQuery)
+          .eq('id', userId)
+          .maybeSingle();
+
+      return retryResponse != null
+          ? UserProfile.fromJson(retryResponse)
+          : null;
+    }
+
+    return null;
+  }
+
+  Future<UserProfile?> _handleProfileError(
+    dynamic error,
+    String userId,
+  ) async {
+    if (_isRLSPolicyError(error)) {
+      _logInfo('Attempting to get profile without RLS policies');
+      return await _getProfileWithoutRLS(userId);
+    }
+    return null;
+  }
+
+  bool _isRLSPolicyError(dynamic error) {
+    final errorString = error.toString();
+    return errorString.contains('infinite recursion') ||
+        errorString.contains('42P17');
+  }
+
+  Future<UserProfile?> _getProfileWithoutRLS(String userId) async {
+    try {
+      final response = await _supabase.rpc(
+        'get_user_profile',
+        params: {'user_id': userId},
+      );
+
+      return response != null ? UserProfile.fromJson(response) : null;
+    } catch (e) {
+      _logError('Get profile without RLS error', e);
+      return null;
+    }
+  }
+
+  // ==================== Constants ====================
+
+  static const String _profileSelectQuery =
+      'id, email, full_name, phone_number, avatar_url, role, '
+      'is_verified, is_active, city, country';
+
+  // ==================== Logging ====================
+
+  void _logInfo(String message) {
+    print('🔐 $message');
+  }
+
+  void _logSuccess(String message) {
+    print('✅ $message');
+  }
+
+  void _logWarning(String message, dynamic error) {
+    print('⚠️ $message: $error');
+  }
+
+  void _logError(String message, dynamic error) {
+    print('❌ $message: $error');
   }
 }

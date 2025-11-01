@@ -10,51 +10,74 @@ class AppAuthCubit extends Cubit<AppAuthState> {
   AppAuthCubit({AuthRepository? authRepository})
       : _authRepository = authRepository ?? AuthRepository(),
         super(const AuthInitial()) {
-    _listenToAuthChanges();
+    _initializeAuthListener();
   }
 
-  void _listenToAuthChanges() {
-    _authRepository.authStateStream.listen((authState) async {
-      if (authState is AppAuthAuthenticated) {
-        await _handleUserAuthenticated(authState.user);
-      } else if (authState is AppAuthUnauthenticated) {
-        emit(authState);
-      }
-    });
+  // ==================== Initialization ====================
+  
+  void _initializeAuthListener() {
+    _authRepository.authStateStream.listen(
+      _handleAuthStateChange,
+      onError: _handleAuthError,
+    );
   }
 
-  Future<void> _handleUserAuthenticated(User user) async {
-    try {
-      // تحديث حالة التحقق من الإيميل
-      await _authRepository.updateEmailVerificationInProfile(user);
-      final profile = await _authRepository.getUserProfile(user.id);
-      final isEmailVerified = user.emailConfirmedAt != null;
-
-      if (!isEmailVerified) {
-        emit(AppAuthEmailNotVerified(
-          user: user,
-          profile: profile,
-          email: user.email ?? '',
-          message: 'Please verify your email address to continue.',
-        ));
-      } else {
-        emit(AppAuthAuthenticated(user: user, profile: profile));
-      }
-    } catch (e) {
-      emit(AppAuthError(_parseError(e.toString())));
+  Future<void> _handleAuthStateChange(AppAuthState authState) async {
+    if (authState is AppAuthAuthenticated) {
+      await _processAuthenticatedUser(authState.user);
+    } else if (authState is AppAuthUnauthenticated) {
+      emit(authState);
     }
   }
+
+  void _handleAuthError(dynamic error) {
+    emit(AppAuthError(_parseErrorMessage(error.toString())));
+  }
+
+  // ==================== Authentication Status ====================
 
   Future<void> checkAuthStatus() async {
     emit(const AppAuthLoading());
 
     final user = _authRepository.currentUser;
     if (user != null) {
-      await _handleUserAuthenticated(user);
+      await _processAuthenticatedUser(user);
     } else {
       emit(const AppAuthUnauthenticated());
     }
   }
+
+  Future<void> _processAuthenticatedUser(User user) async {
+    try {
+      await _updateUserEmailVerification(user);
+      final profile = await _authRepository.getUserProfile(user.id);
+      final isEmailVerified = user.emailConfirmedAt != null;
+
+      if (isEmailVerified) {
+        emit(AppAuthAuthenticated(user: user, profile: profile));
+      } else {
+        emit(AppAuthEmailNotVerified(
+          user: user,
+          profile: profile,
+          email: user.email ?? '',
+          message: 'Please verify your email address to continue.',
+        ));
+      }
+    } catch (e) {
+      emit(AppAuthError(_parseErrorMessage(e.toString())));
+    }
+  }
+
+  Future<void> _updateUserEmailVerification(User user) async {
+    try {
+      await _authRepository.updateEmailVerificationInProfile(user);
+    } catch (e) {
+      // Non-critical operation, log but don't throw
+      print('⚠️ Failed to update email verification: $e');
+    }
+  }
+
+  // ==================== Sign In ====================
 
   Future<void> signIn({
     required String email,
@@ -70,128 +93,151 @@ class AppAuthCubit extends Cubit<AppAuthState> {
         rememberMe: rememberMe,
       );
 
-      if (response.user == null) {
-        emit(const AppAuthError('Invalid email or password.'));
-        await Future.delayed(const Duration(seconds: 2));
-        emit(const AppAuthUnauthenticated());
-      }
+      await _handleSignInResponse(response, email);
     } catch (e) {
-      String errorMessage = _parseError(e.toString());
-
-      if (e.toString().contains('Email not confirmed')) {
-        emit(AppAuthEmailNotVerified(
-          email: email,
-          message: 'Please verify your email address before signing in.',
-        ));
-        return;
-      }
-
-      emit(AppAuthError(errorMessage));
-      await Future.delayed(const Duration(seconds: 2));
-      emit(const AppAuthUnauthenticated());
+      _handleSignInError(e, email);
     }
   }
+
+  Future<void> _handleSignInResponse(AuthResponse response, String email) async {
+    if (response.user == null) {
+      await _emitErrorAndReset('Invalid email or password.');
+      return;
+    }
+  }
+
+  void _handleSignInError(dynamic error, String email) {
+    final errorMessage = error.toString();
+    
+    if (errorMessage.contains('Email not confirmed')) {
+      emit(AppAuthEmailNotVerified(
+        email: email,
+        message: 'Please verify your email address before signing in.',
+      ));
+      return;
+    }
+
+    _emitErrorAndReset(_parseErrorMessage(errorMessage));
+  }
+
+  // ==================== Sign Up ====================
 
   Future<void> signUp({
-  required String email,
-  required String password,
-  String? fullName,
-  String? phoneNumber,
-}) async {
-  try {
-    emit(const AppAuthLoading(isSignUp: true));
+    required String email,
+    required String password,
+    String? fullName,
+    String? phoneNumber,
+  }) async {
+    try {
+      emit(const AppAuthLoading(isSignUp: true));
 
-    final response = await _authRepository.signUp(
-      email: email,
-      password: password,
-      fullName: fullName,
-      phoneNumber: phoneNumber,
-    );
+      final response = await _authRepository.signUp(
+        email: email,
+        password: password,
+        fullName: fullName,
+        phoneNumber: phoneNumber,
+      );
 
-    if (response.user != null) {
-      if (response.user?.emailConfirmedAt == null) {
-        // إرسال حالة طلب OTP للتحقق من الإيميل
-        emit(AppAuthOTPRequired(
-          email: email,
-          otpType: OTPType.emailVerification,
-          message: 'Please enter the verification code sent to your email to activate your account.',
-        ));
-      } else {
-        await _loadUserProfile(response.user!);
-      }
-    } else {
-      emit(const AppAuthError('Sign up failed. Please try again.'));
-      await Future.delayed(const Duration(seconds: 2));
-      emit(const AppAuthUnauthenticated());
+      await _handleSignUpResponse(response, email);
+    } catch (e) {
+      await _emitErrorAndReset(_parseErrorMessage(e.toString()));
     }
-  } catch (e) {
-    emit(AppAuthError(_parseError(e.toString())));
-    await Future.delayed(const Duration(seconds: 2));
-    emit(const AppAuthUnauthenticated());
   }
-}
 
-  // دالة جديدة لإرسال OTP لإعادة تعيين كلمة المرور
+  Future<void> _handleSignUpResponse(AuthResponse response, String email) async {
+    if (response.user == null) {
+      await _emitErrorAndReset('Sign up failed. Please try again.');
+      return;
+    }
+
+    if (_isEmailNotVerified(response.user)) {
+      emit(AppAuthOTPRequired(
+        email: email,
+        otpType: OTPType.emailVerification,
+        message: 'Please enter the verification code sent to your email.',
+      ));
+    } else {
+      await _loadUserProfile(response.user!);
+    }
+  }
+
+  bool _isEmailNotVerified(User? user) {
+    return user?.emailConfirmedAt == null;
+  }
+
+  // ==================== Password Reset ====================
+
   Future<void> sendPasswordResetOTP(String email) async {
     try {
       emit(const AppAuthLoading(isSendingOTP: true));
-
       await _authRepository.sendPasswordResetOTP(email);
-
+      
       emit(AppAuthOTPRequired(
         email: email,
         otpType: OTPType.passwordReset,
-        message: 'Please enter the verification code sent to your email to reset your password.',
+        message: 'Enter the verification code to reset your password.',
       ));
     } catch (e) {
-      emit(AppAuthError(_parseError(e.toString())));
-      await Future.delayed(const Duration(seconds: 2));
-      emit(const AppAuthUnauthenticated());
+      await _emitErrorAndReset(_parseErrorMessage(e.toString()));
     }
   }
 
-  // دالة جديدة للتحقق من OTP وإعادة تعيين كلمة المرور
   Future<void> verifyOTPAndResetPassword({
-  required String email,
-  required String otp,
-  required String newPassword,
-}) async {
-  try {
-    emit(const AppAuthLoading(isOTPVerification: true));
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      emit(const AppAuthLoading(isOTPVerification: true));
 
-    // التحقق من OTP وإعادة تعيين كلمة المرور
-    await _authRepository.verifyOTPAndResetPassword(
-      email: email,
-      token: otp,
-      newPassword: newPassword,
-    );
+      await _authRepository.verifyOTPAndResetPassword(
+        email: email,
+        token: otp,
+        newPassword: newPassword,
+      );
 
-    // تسجيل الدخول التلقائي بكلمة المرور الجديدة
-    await Future.delayed(const Duration(milliseconds: 500)); // انتظار قصير للتأكد من تطبيق التغييرات
+      await _autoSignInAfterPasswordReset(email, newPassword);
+    } catch (e) {
+      await _handlePasswordResetError(e, email, newPassword);
+    }
+  }
+
+  Future<void> _autoSignInAfterPasswordReset(
+    String email,
+    String newPassword,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 500));
     
-    final response = await _authRepository.signIn(
-      email: email,
-      password: newPassword,
-    );
+    try {
+      final response = await _authRepository.signIn(
+        email: email,
+        password: newPassword,
+      );
 
-    if (response.user != null) {
-      // تحديث حالة التحقق من الإيميل في الملف الشخصي
-      await _authRepository.updateEmailVerificationInProfile(response.user!);
-      
-      // تحميل الملف الشخصي
-      final profile = await _authRepository.getUserProfile(response.user!.id);
-      
-      // إصدار حالة المستخدم المصادق عليه
-      emit(AppAuthAuthenticated(user: response.user!, profile: profile));
-    } else {
-      // في حالة فشل تسجيل الدخول التلقائي، إرسال حالة نجح إعادة التعيين
+      if (response.user != null) {
+        await _finalizePasswordResetSignIn(response.user!);
+      } else {
+        emit(const AppAuthPasswordResetSuccess());
+      }
+    } catch (e) {
       emit(const AppAuthPasswordResetSuccess());
     }
+  }
 
-  } catch (e) {
-    print('❌ Verify OTP and reset password error: $e');
+  Future<void> _finalizePasswordResetSignIn(User user) async {
+    await _updateUserEmailVerification(user);
+    final profile = await _authRepository.getUserProfile(user.id);
+    emit(AppAuthAuthenticated(user: user, profile: profile));
+  }
+
+  Future<void> _handlePasswordResetError(
+    dynamic error,
+    String email,
+    String newPassword,
+  ) async {
+    print('❌ Password reset error: $error');
     
-    // في حالة الخطأ، محاولة تسجيل الدخول التلقائي كإجراء بديل
+    // Try auto sign-in as fallback
     try {
       await Future.delayed(const Duration(milliseconds: 1000));
       final response = await _authRepository.signIn(
@@ -200,27 +246,25 @@ class AppAuthCubit extends Cubit<AppAuthState> {
       );
       
       if (response.user != null) {
-        await _authRepository.updateEmailVerificationInProfile(response.user!);
-        final profile = await _authRepository.getUserProfile(response.user!.id);
-        emit(AppAuthAuthenticated(user: response.user!, profile: profile));
+        await _finalizePasswordResetSignIn(response.user!);
         return;
       }
     } catch (autoSignInError) {
-      print('❌ Auto sign-in after password reset failed: $autoSignInError');
+      print('❌ Auto sign-in failed: $autoSignInError');
     }
     
-    emit(AppAuthError(_parseError(e.toString())));
+    emit(AppAuthError(_parseErrorMessage(error.toString())));
     await Future.delayed(const Duration(seconds: 2));
     
-    // العودة لحالة طلب OTP
     emit(AppAuthOTPRequired(
       email: email,
       otpType: OTPType.passwordReset,
       message: 'Invalid code. Please try again.',
     ));
   }
-}
-  // دالة جديدة للتحقق من OTP للإيميل
+
+  // ==================== Email Verification ====================
+
   Future<void> verifyEmailOTP({
     required String email,
     required String otp,
@@ -238,21 +282,63 @@ class AppAuthCubit extends Cubit<AppAuthState> {
       } else {
         throw Exception('Email verification failed');
       }
-
     } catch (e) {
-      emit(AppAuthError(_parseError(e.toString())));
-      await Future.delayed(const Duration(seconds: 2));
-      
-      // العودة لحالة طلب OTP
-      emit(AppAuthOTPRequired(
-        email: email,
-        otpType: OTPType.emailVerification,
-        message: 'Invalid code. Please try again.',
-      ));
+      await _handleEmailVerificationError(e, email);
     }
   }
 
-  // دالة لإعادة إرسال OTP
+  Future<void> _handleEmailVerificationError(dynamic error, String email) async {
+    emit(AppAuthError(_parseErrorMessage(error.toString())));
+    await Future.delayed(const Duration(seconds: 2));
+    
+    emit(AppAuthOTPRequired(
+      email: email,
+      otpType: OTPType.emailVerification,
+      message: 'Invalid code. Please try again.',
+    ));
+  }
+
+  Future<void> resendVerificationEmail(String email) async {
+    try {
+      emit(const AppAuthLoading(isEmailResend: true));
+      await _authRepository.sendEmailVerificationOTP(email);
+
+      emit(AppAuthOTPSent(
+        email: email,
+        message: 'Verification code sent to your email.',
+        otpType: OTPType.emailVerification,
+      ));
+
+      await Future.delayed(const Duration(seconds: 2));
+      
+      emit(AppAuthOTPRequired(
+        email: email,
+        otpType: OTPType.emailVerification,
+        message: 'Enter the verification code sent to your email.',
+      ));
+    } catch (e) {
+      await _handleResendEmailError(e, email);
+    }
+  }
+
+  Future<void> _handleResendEmailError(dynamic error, String email) async {
+    emit(AppAuthError(_parseErrorMessage(error.toString())));
+    await Future.delayed(const Duration(seconds: 2));
+
+    final currentUser = _authRepository.currentUser;
+    if (currentUser != null) {
+      emit(AppAuthEmailNotVerified(
+        user: currentUser,
+        email: currentUser.email ?? '',
+        message: 'Please verify your email address to continue.',
+      ));
+    } else {
+      emit(const AppAuthUnauthenticated());
+    }
+  }
+
+  // ==================== OTP Operations ====================
+
   Future<void> resendOTP(String email, OTPType otpType) async {
     try {
       emit(const AppAuthLoading(isSendingOTP: true));
@@ -269,24 +355,109 @@ class AppAuthCubit extends Cubit<AppAuthState> {
         otpType: otpType,
       ));
 
-      // العودة لحالة طلب OTP
       await Future.delayed(const Duration(seconds: 2));
+      
       emit(AppAuthOTPRequired(
         email: email,
         otpType: otpType,
-        message: 'Please enter the new verification code sent to your email.',
+        message: 'Enter the new verification code sent to your email.',
       ));
-
     } catch (e) {
-      emit(AppAuthError(_parseError(e.toString())));
-      await Future.delayed(const Duration(seconds: 2));
+      await _handleResendOTPError(e, email, otpType);
+    }
+  }
 
-      // العودة لحالة طلب OTP
-      emit(AppAuthOTPRequired(
-        email: email,
-        otpType: otpType,
-        message: 'Failed to resend code. Please try again.',
+  Future<void> _handleResendOTPError(
+    dynamic error,
+    String email,
+    OTPType otpType,
+  ) async {
+    emit(AppAuthError(_parseErrorMessage(error.toString())));
+    await Future.delayed(const Duration(seconds: 2));
+
+    emit(AppAuthOTPRequired(
+      email: email,
+      otpType: otpType,
+      message: 'Failed to resend code. Please try again.',
+    ));
+  }
+
+  // ==================== Social Authentication ====================
+
+  Future<void> signInWithGoogle() async {
+    await _handleSocialSignIn(
+      () => _authRepository.signInWithGoogle(),
+      'Google sign in was cancelled or failed.',
+      isGoogleSignIn: true,
+    );
+  }
+
+  Future<void> signInWithApple() async {
+    await _handleSocialSignIn(
+      () => _authRepository.signInWithApple(),
+      'Apple sign in was cancelled or failed.',
+      isAppleSignIn: true,
+    );
+  }
+
+  Future<void> _handleSocialSignIn(
+    Future<bool> Function() signInMethod,
+    String errorMessage, {
+    bool isGoogleSignIn = false,
+    bool isAppleSignIn = false,
+  }) async {
+    try {
+      emit(AppAuthLoading(
+        isGoogleSignIn: isGoogleSignIn,
+        isAppleSignIn: isAppleSignIn,
       ));
+
+      final success = await signInMethod();
+      
+      if (!success) {
+        await _emitErrorAndReset(errorMessage);
+      }
+    } catch (e) {
+      await _emitErrorAndReset(_parseErrorMessage(e.toString()));
+    }
+  }
+
+  // ==================== Sign Out ====================
+
+  Future<void> signOut() async {
+    try {
+      await _authRepository.signOut();
+      emit(const AppAuthUnauthenticated());
+    } catch (e) {
+      emit(AppAuthError(_parseErrorMessage(e.toString())));
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (state is AppAuthAuthenticated) {
+        emit(state);
+      }
+    }
+  }
+
+  // ==================== Profile Management ====================
+
+  Future<void> updateProfile(UserProfile profile) async {
+    try {
+      final currentState = state;
+      if (currentState is! AppAuthAuthenticated) return;
+
+      await _authRepository.updateUserProfile(profile);
+      
+      emit(AppAuthAuthenticated(
+        user: currentState.user,
+        profile: profile,
+      ));
+    } catch (e) {
+      emit(AppAuthError(_parseErrorMessage(e.toString())));
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (state is AppAuthAuthenticated) {
+        emit(state);
+      }
     }
   }
 
@@ -299,156 +470,58 @@ class AppAuthCubit extends Cubit<AppAuthState> {
     }
   }
 
-  // الاحتفاظ بالدالة القديمة للتوافق مع الكود الموجود
+  // ==================== Deprecated Methods ====================
+
   @Deprecated('Use sendPasswordResetOTP instead')
   Future<void> resetPassword(String email) async {
     await sendPasswordResetOTP(email);
   }
 
-  // الاحتفاظ بالدالة القديمة للتوافق مع الكود الموجود
   @Deprecated('Use verifyOTPAndResetPassword instead')
   Future<void> updatePassword(String newPassword) async {
     try {
       emit(const AppAuthLoading(isPasswordUpdate: true));
-
       await _authRepository.updatePassword(newPassword);
-
       emit(const AppAuthPasswordResetSuccess());
-
       await Future.delayed(const Duration(seconds: 2));
       await signOut();
-
     } catch (e) {
-      emit(AppAuthError(_parseError(e.toString())));
-      await Future.delayed(const Duration(seconds: 2));
-      emit(const AppAuthUnauthenticated());
+      await _emitErrorAndReset(_parseErrorMessage(e.toString()));
     }
   }
 
-  // دالة محدثة لإعادة إرسال رمز التحقق
-  Future<void> resendVerificationEmail(String email) async {
-    try {
-      emit(const AppAuthLoading(isEmailResend: true));
+  // ==================== Helper Methods ====================
 
-      await _authRepository.sendEmailVerificationOTP(email);
-
-      emit(AppAuthOTPSent(
-        email: email,
-        message: 'Verification code has been sent to your email.',
-        otpType: OTPType.emailVerification,
-      ));
-
-      // العودة لحالة طلب OTP
-      await Future.delayed(const Duration(seconds: 2));
-      emit(AppAuthOTPRequired(
-        email: email,
-        otpType: OTPType.emailVerification,
-        message: 'Please enter the verification code sent to your email.',
-      ));
-
-    } catch (e) {
-      emit(AppAuthError(_parseError(e.toString())));
-      await Future.delayed(const Duration(seconds: 2));
-
-      final currentUser = _authRepository.currentUser;
-      if (currentUser != null) {
-        emit(AppAuthEmailNotVerified(
-          user: currentUser,
-          email: currentUser.email ?? '',
-          message: 'Please verify your email address to continue.',
-        ));
-      } else {
-        emit(const AppAuthUnauthenticated());
-      }
-    }
-  }
-
-  Future<void> signInWithGoogle() async {
-    try {
-      emit(const AppAuthLoading(isGoogleSignIn: true));
-
-      final success = await _authRepository.signInWithGoogle();
-      if (!success) {
-        emit(const AppAuthError('Google sign in was cancelled or failed.'));
-        await Future.delayed(const Duration(seconds: 2));
-        emit(const AppAuthUnauthenticated());
-      }
-    } catch (e) {
-      emit(AppAuthError(_parseError(e.toString())));
-      await Future.delayed(const Duration(seconds: 2));
-      emit(const AppAuthUnauthenticated());
-    }
-  }
-
-  Future<void> signInWithApple() async {
-    try {
-      emit(const AppAuthLoading(isAppleSignIn: true));
-
-      final success = await _authRepository.signInWithApple();
-      if (!success) {
-        emit(const AppAuthError('Apple sign in was cancelled or failed.'));
-        await Future.delayed(const Duration(seconds: 2));
-        emit(const AppAuthUnauthenticated());
-      }
-    } catch (e) {
-      emit(AppAuthError(_parseError(e.toString())));
-      await Future.delayed(const Duration(seconds: 2));
-      emit(const AppAuthUnauthenticated());
-    }
-  }
-
-  Future<void> signOut() async {
-    try {
-      await _authRepository.signOut();
-      emit(const AppAuthUnauthenticated());
-    } catch (e) {
-      emit(AppAuthError(_parseError(e.toString())));
-      await Future.delayed(const Duration(seconds: 2));
-      if (state is AppAuthAuthenticated) {
-        emit(state);
-      }
-    }
-  }
-
-  Future<void> updateProfile(UserProfile profile) async {
-    try {
-      final currentState = state;
-      if (currentState is AppAuthAuthenticated) {
-        await _authRepository.updateUserProfile(profile);
-        emit(AppAuthAuthenticated(
-          user: currentState.user,
-          profile: profile,
-        ));
-      }
-    } catch (e) {
-      emit(AppAuthError(_parseError(e.toString())));
-      await Future.delayed(const Duration(seconds: 2));
-      if (state is AppAuthAuthenticated) {
-        emit(state);
-      }
-    }
-  }
-
-  String _parseError(String error) {
-    if (error.contains('Invalid login credentials')) {
-      return 'Invalid email or password.';
-    } else if (error.contains('Email not confirmed')) {
-      return 'Please check your email and confirm your account.';
-    } else if (error.contains('weak_password')) {
-      return 'Password is too weak. Please use a stronger password.';
-    } else if (error.contains('email_address_invalid')) {
-      return 'Please enter a valid email address.';
-    } else if (error.contains('User already registered')) {
-      return 'An account with this email already exists.';
-    } else if (error.contains('too_many_requests')) {
-      return 'Too many requests. Please try again later.';
-    } else if (error.contains('invalid_otp') || error.contains('token_expired')) {
-      return 'Invalid or expired verification code. Please try again.';
-    }
-    return 'An error occurred. Please try again.';
+  Future<void> _emitErrorAndReset(String errorMessage) async {
+    emit(AppAuthError(errorMessage));
+    await Future.delayed(const Duration(seconds: 2));
+    emit(const AppAuthUnauthenticated());
   }
 
   void resetToUnauthenticated() {
     emit(const AppAuthUnauthenticated());
+  }
+
+  // ==================== Error Parsing ====================
+
+  String _parseErrorMessage(String error) {
+    final errorMap = {
+      'Invalid login credentials': 'Invalid email or password.',
+      'Email not confirmed': 'Please check your email and confirm your account.',
+      'weak_password': 'Password is too weak. Please use a stronger password.',
+      'email_address_invalid': 'Please enter a valid email address.',
+      'User already registered': 'An account with this email already exists.',
+      'too_many_requests': 'Too many requests. Please try again later.',
+      'invalid_otp': 'Invalid or expired verification code.',
+      'token_expired': 'Invalid or expired verification code.',
+    };
+
+    for (final entry in errorMap.entries) {
+      if (error.contains(entry.key)) {
+        return entry.value;
+      }
+    }
+
+    return 'An error occurred. Please try again.';
   }
 }
