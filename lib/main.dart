@@ -5,7 +5,7 @@ import 'package:tabiby/core/routing/app_router.dart';
 import 'package:tabiby/tabiby_app.dart';
 import 'config/configrations.dart';
 
-import 'features/login/logic/auth_cubit.dart';
+import 'features/auth/logic/auth_cubit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

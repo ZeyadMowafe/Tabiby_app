@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tabiby/core/routing/routes.dart';
 import 'package:tabiby/features/home/ui/patient_home_screen.dart';
-import 'package:tabiby/features/login/ui/OTP_screen.dart';
-import 'package:tabiby/features/login/ui/reset_password_OTP.dart';
+import 'package:tabiby/features/auth/ui/OTP_screen.dart';
+import 'package:tabiby/features/auth/ui/reset_password_OTP.dart';
 
 
-import '../../features/login/logic/auth_cubit.dart';
-import '../../features/login/ui/login_screen.dart';
-import '../../features/login/ui/sign_up_screen.dart';
+import '../../features/auth/logic/auth_cubit.dart';
+import '../../features/auth/ui/login_screen.dart';
+import '../../features/auth/ui/sign_up_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
-import '../../features/login/ui/email_verification_screen.dart';
-import '../../features/login/ui/forget_password_screen.dart';
-import '../../features/login/logic/auth_state.dart';
+import '../../features/auth/ui/email_verification_screen.dart';
+import '../../features/auth/ui/forget_password_screen.dart';
+import '../../features/auth/logic/auth_state.dart';
 
 class AppRouter {
   Route? generateRoute(RouteSettings settings) {

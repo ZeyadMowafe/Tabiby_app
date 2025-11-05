@@ -5,7 +5,7 @@ import 'onboarding_data.dart';
 import 'onboarding_page.dart';
 import 'widgets/onboarding_header.dart';
 import 'widgets/onboarding_navigation.dart';
-import '../login/ui/login_screen.dart';
+import '../auth/ui/login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({Key? key}) : super(key: key);
