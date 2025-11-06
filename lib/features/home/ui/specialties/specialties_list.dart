@@ -1,15 +1,22 @@
+// lib/features/home/ui/widgets/specialties/specialties_list.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:tabiby/features/home/ui/specialties/specialties_section.dart';
+import 'package:tabiby/features/home/data/models/specialty_model.dart';
 import 'package:tabiby/features/home/ui/specialties/specialty_card.dart';
 
+
 class SpecialtiesList extends StatelessWidget {
-  const SpecialtiesList({super.key});
+  final List<Specialty> specialties;
+  
+  const SpecialtiesList({
+    super.key,
+    required this.specialties,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 120.h,
+      height: 160.h,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),

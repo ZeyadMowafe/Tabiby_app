@@ -4,8 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:tabiby/core/theming/colors.dart';
 import 'package:tabiby/features/home/ui/clinics/clinic_info.dart';
-import 'package:tabiby/features/home/ui/widgets/section_header.dart';
-import 'package:tabiby/features/home/ui/widgets/specialties_row.dart';
+import 'package:tabiby/features/home/ui/widgets/common/section_header.dart';
+import 'package:tabiby/features/home/ui/clinics/specialties_clinic_row.dart';
 
 class ClinicsSection extends StatelessWidget {
   const ClinicsSection({super.key});

@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:tabiby/core/theming/colors.dart';
+import 'package:tabiby/features/home/data/models/doctor_model.dart';
 
 class CardFooterDoctor extends StatelessWidget {
   const CardFooterDoctor({super.key, required this.doctor});
-final Map<String, dynamic> doctor;
+final Doctor doctor;
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -27,7 +28,7 @@ final Map<String, dynamic> doctor;
               ),
               Gap(1.h),
               Text(
-                '${doctor['fee']}  ج.م',
+                '${doctor.experience}  ج.م',
                 style: TextStyle(
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w800,

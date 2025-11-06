@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:tabiby/features/home/data/models/doctor_model.dart';
 import 'package:tabiby/features/home/ui/select_doctor/doctor_card.dart';
-import 'package:tabiby/features/home/ui/widgets/top_doctors_section.dart';
+import 'package:tabiby/features/home/ui/select_doctor/top_doctors_section.dart';
 
 class DoctorsList extends StatelessWidget {
-  const DoctorsList({super.key});
-
+  const DoctorsList({super.key, required this.doctors});
+final List<Doctor> doctors;
 
   @override
   Widget build(BuildContext context) {

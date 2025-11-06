@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:tabiby/core/theming/colors.dart';
-import 'package:tabiby/features/home/ui/widgets/info_ship.dart';
+import 'package:tabiby/features/home/data/models/doctor_model.dart';
+import 'package:tabiby/features/home/ui/select_doctor/info_ship.dart';
 
 
 class CardBody extends StatelessWidget {
   const CardBody({super.key, required this.doctor});
-final Map<String, dynamic> doctor;
+final Doctor  doctor;
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -16,17 +17,17 @@ final Map<String, dynamic> doctor;
         children: [
           InfoChip(color: AppColors.warningOrange, 
             icon: Icons.star_rounded,
-            text: '${doctor['rating']}',
+            text: '${doctor.rating}',
           ),
           Gap(  8.w),
           InfoChip(color: AppColors.primaryBlue,  
             icon: Icons.work_outline_rounded,
-            text: '${doctor['experience']}y',
+            text: '${doctor.experience} y',
           ),
            Gap(  8.w),
           InfoChip(color: AppColors.tertiaryText, 
             icon: Icons.rate_review_outlined,
-            text: '${doctor['reviews']}',
+            text: '${doctor.reviewsCount} Reviews',
           ),
            Gap(  8.w),
         ],

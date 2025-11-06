@@ -1,19 +1,22 @@
 // lib/features/home/ui/patient_home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // أضف هذا
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:tabiby/core/theming/colors.dart';
-import 'package:tabiby/features/home/ui/widgets/top_doctors_section.dart';
+import 'package:tabiby/features/home/logic/home_cubit.dart'; // أضف الـ Cubit
+import 'package:tabiby/features/home/logic/home_state.dart'; // أضف الـ State
+import 'package:tabiby/features/home/ui/select_doctor/top_doctors_section.dart';
 import 'package:tabiby/features/home/ui/appbar/home_app_bar.dart';
 import 'package:tabiby/features/home/ui/searchbar/search_bar.dart';
-import 'package:tabiby/features/home/ui/widgets/upcoming_appointments_section.dart';
+import 'package:tabiby/features/home/ui/upcoming_appointment/upcoming_appointments_section.dart';
 import 'widgets/common/animated_screen.dart';
 
 import 'specialties/specialties_section.dart';
 import 'clinics/clinics_section.dart';
 import 'booking/recent_bookings_section.dart';
-import 'widgets/bottom_navigation_bar.dart';
+import 'bottom_navigation/bottom_navigation_bar.dart';
 
 class PatientHomeScreen extends StatefulWidget {
   const PatientHomeScreen({super.key});
@@ -33,6 +36,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     super.initState();
     _setupScrollListener();
     _setSystemUIOverlayStyle();
+    // جلب البيانات من Supabase
+    context.read<HomeCubit>().loadHomeData(); 
   }
 
   @override
@@ -92,7 +97,6 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // AppBar
                   ClipRect(
                     child: AnimatedAlign(
                       duration: const Duration(milliseconds: 300),
@@ -102,7 +106,6 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       child: HomeAppBar(showShadow: !_showAppBar),
                     ),
                   ),
-                  // Search Bar
                   Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: 16.w,
@@ -121,25 +124,45 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 onTap: _dismissKeyboard,
                 behavior: HitTestBehavior.opaque,
                 child: AnimatedScreen(
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Gap(12.h),
-                        SpecialtiesSection(),
-                        Gap(24.h),
-                        TopDoctorsSection(),
-                        Gap(24.h),
-                        ClinicsSection(),
-                        Gap(24.h),
-                        RecentBookingsSection(),
-                        Gap(24.h),
-                        UpcomingAppointmentsSection(),
-                        Gap(100.h),
-                      ],
-                    ),
+                  child: BlocBuilder<HomeCubit, HomeState>(
+                    builder: (context, state) {
+                      if (state is HomeLoading) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+                      
+                      if (state is HomeError) {
+                        return Center(
+                          child: Text(state.message),
+                        );
+                      }
+                      
+                      if (state is HomeLoaded) {
+                        return SingleChildScrollView(
+                          controller: _scrollController,
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Gap(12.h),
+                              SpecialtiesSection(specialties: state.specialties),
+                              Gap(24.h),
+                              TopDoctorsSection(doctors: state.Doctors,),
+                              Gap(24.h),
+                              ClinicsSection(),
+                              Gap(24.h),
+                              RecentBookingsSection(),
+                              Gap(24.h),
+                              UpcomingAppointmentsSection(),
+                              Gap(100.h),
+                            ],
+                          ),
+                        );
+                      }
+                      
+                      return const SizedBox.shrink();
+                    },
                   ),
                 ),
               ),

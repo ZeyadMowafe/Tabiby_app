@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:tabiby/core/theming/colors.dart';
+import 'package:tabiby/features/home/data/models/doctor_model.dart';
 import 'package:tabiby/features/home/ui/select_doctor/card_body_doctor.dart';
 import 'package:tabiby/features/home/ui/select_doctor/card_footer_doctor.dart';
 import 'package:tabiby/features/home/ui/select_doctor/card_header_doctor.dart';
 
 
 class DoctorCard extends StatelessWidget {
-  final Map<String, dynamic> doctor;
+  final Doctor doctor;
 
   const DoctorCard({required this.doctor});
 

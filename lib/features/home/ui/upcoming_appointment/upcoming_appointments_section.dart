@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:tabiby/core/theming/colors.dart';
-import 'package:tabiby/features/home/ui/widgets/doctor_info_booking.dart';
-import 'package:tabiby/features/home/ui/booking/recent_bookings_section.dart';
-import 'package:tabiby/features/home/ui/widgets/section_header.dart';
+import 'package:tabiby/features/home/ui/booking/doctor_info_booking.dart';
+import 'package:tabiby/features/home/ui/widgets/common/section_header.dart';
 
 class UpcomingAppointmentsSection extends StatelessWidget {
   const UpcomingAppointmentsSection({super.key});

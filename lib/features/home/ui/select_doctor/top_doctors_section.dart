@@ -2,13 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
+import 'package:tabiby/features/home/data/models/doctor_model.dart';
 
 import 'package:tabiby/features/home/ui/select_doctor/doctor_list.dart';
-import 'package:tabiby/features/home/ui/widgets/section_header.dart';
+import 'package:tabiby/features/home/ui/widgets/common/section_header.dart';
 
 class TopDoctorsSection extends StatelessWidget {
-  const TopDoctorsSection({super.key});
-
+  const TopDoctorsSection({super.key, required this.doctors});
+final List<Doctor> doctors;
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -19,51 +20,8 @@ class TopDoctorsSection extends StatelessWidget {
           SubTextHeader: 'كافة اطباء متخصصين',
         ),
         Gap(16.h),
-        DoctorsList(),
+        DoctorsList(doctors: doctors,),
       ],
     );
   }
 }
-
-final List<Map<String, dynamic>> doctors = [
-  {
-    'name': 'د. أحمد علي',
-    'specialty': 'اطفال',
-    'rating': 4.9,
-    'reviews': 2847,
-    'experience': 15,
-    'fee': 500,
-    'available': true,
-    'image': null,
-  },
-  {
-    'name': 'د. محمد سعيد',
-    'specialty': 'باطنة',
-    'rating': 4.9,
-    'reviews': 2847,
-    'experience': 15,
-    'fee': 500,
-    'available': true,
-    'image': null,
-  },
-  {
-    'name': 'د. سارة محمود',
-    'specialty': 'جلدية',
-    'rating': 4.8,
-    'reviews': 1923,
-    'experience': 12,
-    'fee': 450,
-    'available': false,
-    'image': null,
-  },
-  {
-    'name': 'د. خالد حسن',
-    'specialty': 'قلب',
-    'rating': 4.7,
-    'reviews': 1654,
-    'experience': 10,
-    'fee': 400,
-    'available': true,
-    'image': null,
-  },
-];

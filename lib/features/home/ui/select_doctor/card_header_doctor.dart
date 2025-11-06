@@ -3,11 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:tabiby/core/theming/colors.dart';
+import 'package:tabiby/features/home/data/models/doctor_model.dart';
 import 'package:tabiby/features/home/ui/select_doctor/doctor_avater.dart';
 
 class CardHeaderDoctor extends StatelessWidget {
-  const CardHeaderDoctor({super.key, required this.doctor});
-  final Map<String, dynamic> doctor;
+  const CardHeaderDoctor({super.key, required this.doctor, });
+  final Doctor doctor;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +23,7 @@ class CardHeaderDoctor extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  doctor['name'] as String,
+                  doctor.name as String,
                   style: TextStyle(
                     fontSize: 16.sp,
                     fontWeight: FontWeight.w700,
@@ -33,7 +34,7 @@ class CardHeaderDoctor extends StatelessWidget {
                 ),
                 Gap(4.h),
                 Text(
-                  doctor['specialty'] as String,
+                  doctor.specialtyName as String,
                   style: TextStyle(
                     fontSize: 13.sp,
                     color: AppColors.primaryBlue,

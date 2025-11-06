@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:tabiby/core/theming/colors.dart';
-import 'package:tabiby/features/home/ui/widgets/bottom_navigation_item.dart';
+import 'package:tabiby/features/home/ui/bottom_navigation/bottom_navigation_item.dart';
 
 class CustomBottomNavigationBar extends StatelessWidget {
   const CustomBottomNavigationBar({super.key});
