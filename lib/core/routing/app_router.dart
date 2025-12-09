@@ -1,133 +1,119 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tabiby/core/di/dependency_injection.dart';
 import 'package:tabiby/core/routing/routes.dart';
-import 'package:tabiby/features/home/ui/patient_home_screen.dart';
-import 'package:tabiby/features/auth/ui/OTP_screen.dart';
-import 'package:tabiby/features/auth/ui/reset_password_OTP.dart';
-
-
-import '../../features/auth/logic/auth_cubit.dart';
-import '../../features/auth/ui/login_screen.dart';
-import '../../features/auth/ui/sign_up_screen.dart';
-import '../../features/onboarding/onboarding_screen.dart';
-import '../../features/auth/ui/email_verification_screen.dart';
-import '../../features/auth/ui/forget_password_screen.dart';
-import '../../features/auth/logic/auth_state.dart';
+import 'package:tabiby/features/login/logic/login_cubit.dart';
+import 'package:tabiby/features/login/ui/forget_password.dart';
+import 'package:tabiby/features/login/ui/login_screen.dart';
+import 'package:tabiby/features/onboarding/ui/onboarding_view.dart';
+import 'package:tabiby/features/sign_up/logic/sign_up_cubit.dart';
+import 'package:tabiby/features/sign_up/ui/OTP_verification_screen.dart';
+import 'package:tabiby/features/sign_up/ui/sign_up_screen.dart';
+import 'package:tabiby/features/home/home_screen.dart';
 
 class AppRouter {
-  Route? generateRoute(RouteSettings settings) {
+  Route<dynamic> generateRoute(RouteSettings settings) {
+
     final arguments = settings.arguments;
 
     switch (settings.name) {
+
+      // ----------------------
+      // 🌟 Onboarding Screen
+      // ----------------------
       case Routes.onBoardingScreen:
         return MaterialPageRoute(
           builder: (_) => const OnboardingScreen(),
         );
 
+      // ----------------------
+      // 🌟 Login Screen
+      // ----------------------
       case Routes.loginScreen:
         return MaterialPageRoute(
           builder: (_) => BlocProvider(
-            create: (context) => AppAuthCubit(),
+            create: (_) => getIt<LoginCubit>(),
             child: const LoginScreen(),
           ),
         );
 
+      // ----------------------
+      // 🌟 Sign Up Screen
+      // ----------------------
       case Routes.signUpScreen:
         return MaterialPageRoute(
           builder: (_) => BlocProvider(
-            create: (context) => AppAuthCubit(),
+            create: (_) => getIt<SignupCubit>(),
             child: const SignUpScreen(),
           ),
         );
 
-      case Routes.homeScreen:
-        return MaterialPageRoute(
-          builder: (_) => BlocProvider(
-            create: (context) => AppAuthCubit()..checkAuthStatus(),
-            child: const PatientHomeScreen(),
-          ),
-        );
+      // ----------------------
+      // 🌟 OTP Verification Screen
+      // ----------------------
+      case Routes.otpScreen:
 
-      case Routes.emailVerificationScreen:
-        final args = arguments as Map<String, dynamic>?;
-        return MaterialPageRoute(
-          builder: (_) => BlocProvider(
-            create: (context) => AppAuthCubit(),
-            child: EmailVerificationScreen(
-              email: args?['email'] ?? '',
-              message: args?['message'] ?? '',
-            ),
-          ),
-        );
-
-      case Routes.forgotPasswordScreen:
-        return MaterialPageRoute(
-          builder: (_) => BlocProvider(
-            create: (context) => AppAuthCubit(),
-            child: const ForgotPasswordScreen(),
-          ),
-        );
-
-      // New OTP-based reset password screen
-      case Routes.resetPasswordWithOTPScreen:
-        return MaterialPageRoute(
-          builder: (_) => BlocProvider(
-            create: (context) => AppAuthCubit(),
-            child: const ResetPasswordWithOTPScreen(),
-          ),
-        );
-
-      // OTP Input Screen
-      case Routes.otpInputScreen:
-        final args = arguments as Map<String, dynamic>?;
-        final email = args?['email'] as String? ?? '';
-        final otpType = args?['otpType'] as OTPType? ?? OTPType.emailVerification;
-        final message = args?['message'] as String?;
-        final newPassword = args?['newPassword'] as String?;
-
-        return MaterialPageRoute(
-          builder: (_) => BlocProvider(
-            create: (context) => AppAuthCubit(),
-            child: OTPInputScreen(
-              email: email,
-              otpType: otpType,
-              message: message,
-              newPassword: newPassword,
-            ),
-          ),
-        );
-
-      // Keep the old reset password screen for backward compatibility
-      case Routes.resetPasswordScreen:
-        final args = arguments as Map<String, dynamic>?;
-        final accessToken = args?['accessToken'] as String?;
-        
-        print('Router: Handling reset password with token: ${accessToken?.substring(0, 10) ?? 'null'}...');
-        
-        if (accessToken == null || accessToken.isEmpty) {
-          print('No token provided, redirecting to OTP-based reset');
-          // Redirect to OTP-based reset password screen
-          return MaterialPageRoute(
-            builder: (_) => BlocProvider(
-              create: (context) => AppAuthCubit(),
-              child: const ResetPasswordWithOTPScreen(),
-            ),
-          );
+        // 1) تحقق الآمان: لازم arguments يكون String (الإيميل)
+        if (arguments is! String) {
+          return _errorRoute("OTP Screen requires an email (String).");
         }
 
-        
+        final email = arguments;
 
-      default:
+        // 2) بنستخدم نفس Cubit بتاع signup (مش بنعمل Cubit جديد)
+        final signupCubit = getIt<SignupCubit>();
+
         return MaterialPageRoute(
-          builder: (_) => Scaffold(
-            body: Center(
-              child: Text(
-                "No route defined for ${settings.name}",
-                style: const TextStyle(fontSize: 18),
-              ),
-            ),
+          builder: (_) => BlocProvider.value(
+            value: signupCubit,
+            child: OTPVerificationScreen(email: email),
           ),
         );
+
+      // ----------------------
+      // 🌟 Forget Password Screen
+      // ----------------------
+      case Routes.forgetPasswordScreen:
+        final loginCubit = getIt<LoginCubit>();
+
+        return MaterialPageRoute(
+          builder: (_) => BlocProvider.value(
+            value: loginCubit,
+            child: const ForgetPasswordScreen(),
+          ),
+        );
+
+      // ----------------------
+      // 🌟 Home Screen
+      // ----------------------
+      case Routes.homeScreen:
+        return MaterialPageRoute(
+          builder: (_) => const HomeScreen(),
+        );
+
+      // ----------------------
+      // 🌟 Unknown Route (404)
+      // ----------------------
+      default:
+        return _errorRoute("No route found for: ${settings.name}");
     }
+  }
+
+  // ***********************
+  // 🌟 Error Screen (آمنة)
+  // ***********************
+  Route<dynamic> _errorRoute(String message) {
+    return MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: const Text("Routing Error")),
+        body: Center(
+          child: Text(
+            message,
+            style: const TextStyle(fontSize: 18, color: Colors.red),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
   }
 }
